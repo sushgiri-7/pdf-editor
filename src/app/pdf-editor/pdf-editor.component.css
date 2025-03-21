@@ -1,0 +1,45 @@
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px;
+  background: #f4f4f4;
+}
+
+.editor-container {
+  display: flex;
+}
+
+.sidebar {
+  width: 200px;
+  background: #eee;
+  padding: 10px;
+}
+
+.pdf-canvas {
+  flex: 1;
+  background: white;
+  position: relative;
+  min-height: 600px;
+  border: 1px solid #ccc;
+}
+
+.draggable-text {
+  position: absolute;
+  padding: 5px;
+  font-size: 16px;
+  color: red;
+  cursor: move;
+  background: white;
+  border: 1px solid #ccc;
+}
+
+.draggable-text {
+  font-size: 16px;
+  border: 1px solid #000;
+  padding: 5px;
+  background: rgba(255, 255, 255, 0.8);
+  cursor: move;
+  display: inline-block;
+  min-width: 50px;
+  min-height: 30px;
+}

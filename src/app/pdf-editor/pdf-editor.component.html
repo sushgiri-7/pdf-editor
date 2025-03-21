@@ -1,0 +1,28 @@
+<div class="toolbar">
+  <p-fileUpload
+    mode="basic"
+    chooseLabel="Upload PDF"
+    (onSelect)="onFileChange($event)"
+    accept=".pdf"
+  ></p-fileUpload>
+  <p-button
+    label="Download PDF"
+    icon="pi pi-download"
+    (click)="downloadPdf()"
+  ></p-button>
+</div>
+
+<div class="editor-container">
+  <div class="sidebar">
+    <h3>Elements</h3>
+    <p-button
+      label="Add Text"
+      icon="pi pi-font"
+      (click)="addTextToPage()"
+    ></p-button>
+  </div>
+
+  <div class="pdf-canvas" #pdfContainer>
+    <canvas *ngFor="let page of pdfPages; let i = index" #canvasRefs></canvas>
+  </div>
+</div>
