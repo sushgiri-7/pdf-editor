@@ -19,7 +19,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc =
 })
 export class PdfEditorComponent {
   pdfFile: File | null = null;
-  pdfPages: string[] = [];
+  pdfPages: HTMLCanvasElement[] = [];
 
   @ViewChildren('canvasRefs') canvasRefs!: QueryList<
     ElementRef<HTMLCanvasElement>
@@ -33,7 +33,28 @@ export class PdfEditorComponent {
     y: number;
     text: string;
   }[] = [];
+  imageItems: {
+    id: number;
+    pageIndex: number;
+    x: number;
+    y: number;
+    src: string;
+    width: number;
+    height: number;
+  }[] = [];
+
+  checkboxItems: {
+    id: number;
+    pageIndex: number;
+    x: number;
+    y: number;
+    checked: boolean;
+  }[] = [];
+
+  checkboxCounter = 0;
+
   textCounter = 0;
+  imageCounter = 0;
 
   async onFileChange(event: any): Promise<void> {
     this.pdfFile = event.files[0];
@@ -67,7 +88,7 @@ export class PdfEditorComponent {
             viewport: viewport,
           }).promise;
 
-          this.pdfPages.push(canvas.toDataURL('image/png'));
+          this.pdfPages.push(canvas);
         }
       }
 
@@ -81,16 +102,10 @@ export class PdfEditorComponent {
     this.canvasRefs.forEach((canvasRef, index) => {
       const canvasElement = canvasRef.nativeElement;
       const context = canvasElement.getContext('2d');
-
       if (context) {
-        const image = new Image();
-        image.src = this.pdfPages[index];
-
-        image.onload = () => {
-          canvasElement.width = image.width;
-          canvasElement.height = image.height;
-          context.drawImage(image, 0, 0);
-        };
+        canvasElement.width = this.pdfPages[index].width;
+        canvasElement.height = this.pdfPages[index].height;
+        context.drawImage(this.pdfPages[index], 0, 0);
       }
     });
   }
@@ -104,28 +119,78 @@ export class PdfEditorComponent {
       text: 'New Text',
     };
     this.textItems.push(textItem);
-    this.createDraggableTextElement(textItem);
+    this.createDraggableElement(textItem, 'text');
   }
 
-  createDraggableTextElement(item: any): void {
+  addImageToPage(event: any): void {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const imageItem = {
+        id: this.imageCounter++,
+        pageIndex: 0,
+        x: 100,
+        y: 100,
+        src: reader.result as string,
+        width: 100,
+        height: 100,
+      };
+      this.imageItems.push(imageItem);
+      this.createDraggableElement(imageItem, 'image');
+    };
+    reader.readAsDataURL(file);
+  }
+
+  addCheckboxToPage(): void {
+    const checkboxItem = {
+      id: this.checkboxCounter++,
+      pageIndex: 0,
+      x: 50,
+      y: 50,
+      checked: false,
+    };
+    this.checkboxItems.push(checkboxItem);
+    this.createDraggableElement(checkboxItem, 'checkbox');
+  }
+
+  createDraggableElement(item: any, type: 'text' | 'image' | 'checkbox'): void {
     const container = this.pdfContainer.nativeElement;
-    const textElement = document.createElement('div');
+    const element = document.createElement('div');
 
-    textElement.id = `text-${item.id}`;
-    textElement.innerText = item.text;
-    textElement.classList.add('draggable-text');
-    textElement.style.position = 'absolute';
-    textElement.style.left = `${item.x}px`;
-    textElement.style.top = `${item.y}px`;
-    textElement.setAttribute('contenteditable', 'true');
+    element.id = `${type}-${item.id}`;
+    element.style.position = 'absolute';
+    element.style.left = `${item.x}px`;
+    element.style.top = `${item.y}px`;
 
-    textElement.addEventListener('blur', () =>
-      this.updateText(item.id, textElement.innerText)
-    );
+    if (type === 'text') {
+      element.innerText = item.text;
+      element.classList.add('draggable-text');
+      element.setAttribute('contenteditable', 'true');
+      element.addEventListener('blur', () =>
+        this.updateText(item.id, element.innerText)
+      );
+    } else if (type === 'image') {
+      const img = document.createElement('img');
+      img.src = item.src;
+      img.width = item.width;
+      img.height = item.height;
+      img.style.pointerEvents = 'none';
+      element.appendChild(img);
+    } else if (type === 'checkbox') {
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.checked = item.checked;
+      checkbox.addEventListener('change', () => {
+        item.checked = checkbox.checked;
+      });
+      element.appendChild(checkbox);
+    }
 
-    container.appendChild(textElement);
+    container.appendChild(element);
 
-    interact(textElement).draggable({
+    interact(element).draggable({
       listeners: {
         move: (event) => {
           item.x += event.dx;
@@ -161,27 +226,43 @@ export class PdfEditorComponent {
         0,
         210,
         (canvas.height / canvas.width) * 210
-      ); // Maintain aspect ratio
+      );
 
-      // Get canvas size to calculate correct scale
-      const canvasWidth = canvas.width;
-      const canvasHeight = canvas.height;
+      const scaleX = 210 / canvas.width;
+      const scaleY = ((canvas.height / canvas.width) * 210) / canvas.height;
 
-      // Scaling factors from canvas pixels to PDF units
-      const scaleX = 210 / canvasWidth;
-      const scaleY = ((canvas.height / canvas.width) * 210) / canvasHeight;
+      this.checkboxItems
+        .filter((checkbox) => checkbox.pageIndex === index)
+        .forEach((checkbox) => {
+          doc.setFillColor(255, 255, 255);
+          doc.rect(
+            checkbox.x * scaleX,
+            checkbox.y * scaleY,
+            5,
+            5,
+            checkbox.checked ? 'F' : 'S'
+          );
+        });
 
       this.textItems
         .filter((text) => text.pageIndex === index)
         .forEach((text) => {
           doc.setFontSize(12);
           doc.setTextColor(0, 0, 0);
+          doc.text(text.text, text.x * scaleX, text.y * scaleY);
+        });
 
-          // Scale the text position properly
-          const adjustedX = text.x * scaleX;
-          const adjustedY = text.y * scaleY;
-
-          doc.text(text.text, adjustedX, adjustedY);
+      this.imageItems
+        .filter((img) => img.pageIndex === index)
+        .forEach((img) => {
+          doc.addImage(
+            img.src,
+            'PNG',
+            img.x * scaleX,
+            img.y * scaleY,
+            img.width * scaleX,
+            img.height * scaleY
+          );
         });
     });
 

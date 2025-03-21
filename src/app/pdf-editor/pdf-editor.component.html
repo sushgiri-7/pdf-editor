@@ -5,6 +5,14 @@
     (onSelect)="onFileChange($event)"
     accept=".pdf"
   ></p-fileUpload>
+  <input
+    type="file"
+    (change)="addImageToPage($event)"
+    accept="image/*"
+    hidden
+    #imageUploader
+  />
+
   <p-button
     label="Download PDF"
     icon="pi pi-download"
@@ -19,6 +27,16 @@
       label="Add Text"
       icon="pi pi-font"
       (click)="addTextToPage()"
+    ></p-button>
+    <p-button
+      label="Add Image"
+      icon="pi pi-image"
+      (click)="imageUploader.click()"
+    ></p-button>
+    <p-button
+      label="Add Checkbox"
+      icon="pi pi-check-square"
+      (click)="addCheckboxToPage()"
     ></p-button>
   </div>
 
