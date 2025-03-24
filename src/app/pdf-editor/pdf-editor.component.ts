@@ -4,6 +4,7 @@ import {
   ViewChild,
   ViewChildren,
   QueryList,
+  OnInit,
 } from '@angular/core';
 import { jsPDF } from 'jspdf';
 import * as pdfjsLib from 'pdfjs-dist';
@@ -17,7 +18,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc =
   templateUrl: './pdf-editor.component.html',
   styleUrls: ['./pdf-editor.component.css'],
 })
-export class PdfEditorComponent {
+export class PdfEditorComponent implements OnInit {
   pdfFile: File | null = null;
   pdfPages: HTMLCanvasElement[] = [];
 
@@ -56,10 +57,106 @@ export class PdfEditorComponent {
   textCounter = 0;
   imageCounter = 0;
 
+  ngOnInit(): void {
+    this.loadDocument();
+  }
+
+  // save data in localStorage
+
+  saveDocument(): void {
+    if (!this.pdfFile) {
+      alert('No PDF file uploaded!');
+      return;
+    }
+
+    const fileReader = new FileReader();
+    fileReader.onload = () => {
+      const documentData = {
+        pdfFile: fileReader.result as string, // Save PDF file as a base64 string
+        pdfPages: this.pdfPages.map((canvas) => canvas.toDataURL()), // Save PDF pages as images
+        textItems: this.textItems,
+        imageItems: this.imageItems,
+        checkboxItems: this.checkboxItems,
+        textCounter: this.textCounter, // Save textCounter
+        imageCounter: this.imageCounter, // Save imageCounter
+        checkboxCounter: this.checkboxCounter, // Save checkboxCounter
+      };
+      localStorage.setItem('savedDocument', JSON.stringify(documentData));
+      alert('Document saved successfully!');
+    };
+    fileReader.readAsDataURL(this.pdfFile); // Read the file as a base64 string
+  }
+
+  // loadDocument
+
+  async loadDocument(): Promise<void> {
+    const savedDocument = localStorage.getItem('savedDocument');
+    if (savedDocument) {
+      const documentData = JSON.parse(savedDocument);
+
+      // Restore counters from saved data
+      this.textCounter = documentData.textCounter || 0;
+      this.imageCounter = documentData.imageCounter || 0;
+      this.checkboxCounter = documentData.checkboxCounter || 0;
+
+      // Load PDF file
+      if (documentData.pdfFile) {
+        const base64Data = documentData.pdfFile.split(',')[1]; // Extract base64 data
+        const byteCharacters = atob(base64Data); // Decode base64
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], { type: 'application/pdf' });
+        this.pdfFile = new File([blob], 'saved.pdf', {
+          type: 'application/pdf',
+        });
+        await this.convertPdfToImages(this.pdfFile);
+      }
+
+      // Load PDF pages
+      this.pdfPages = documentData.pdfPages.map((dataUrl: string) => {
+        const canvas = document.createElement('canvas');
+        const img = new Image();
+        img.src = dataUrl;
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const context = canvas.getContext('2d');
+        if (context) {
+          context.drawImage(img, 0, 0);
+        }
+        return canvas;
+      });
+
+      // Load text items
+      this.textItems = documentData.textItems;
+      this.textItems.forEach((item: any) =>
+        this.createDraggableElement(item, 'text')
+      );
+
+      // Load image items
+      this.imageItems = documentData.imageItems;
+      this.imageItems.forEach((item: any) =>
+        this.createDraggableElement(item, 'image')
+      );
+
+      // Load checkbox items
+      this.checkboxItems = documentData.checkboxItems;
+      this.checkboxItems.forEach((item: any) =>
+        this.createDraggableElement(item, 'checkbox')
+      );
+
+      setTimeout(() => this.renderCanvases(), 500);
+    } else {
+      alert('No saved document found!');
+    }
+  }
+
   async onFileChange(event: any): Promise<void> {
     this.pdfFile = event.files[0];
     if (this.pdfFile) {
-      this.convertPdfToImages(this.pdfFile);
+      await this.convertPdfToImages(this.pdfFile);
     }
   }
 
@@ -110,12 +207,24 @@ export class PdfEditorComponent {
     });
   }
 
+  // addTextToPage(): void {
+  //   const textItem = {
+  //     id: this.textCounter++,
+  //     pageIndex: 0,
+  //     x: 50,
+  //     y: 50,
+  //     text: 'New Text',
+  //   };
+  //   this.textItems.push(textItem);
+  //   this.createDraggableElement(textItem, 'text');
+  // }
+
   addTextToPage(): void {
     const textItem = {
-      id: this.textCounter++,
+      id: this.textCounter++, // Increment textCounter
       pageIndex: 0,
       x: 50,
-      y: 50,
+      y: 50 + this.textItems.length * 20, // Adjust Y position to avoid overlap
       text: 'New Text',
     };
     this.textItems.push(textItem);
@@ -129,10 +238,10 @@ export class PdfEditorComponent {
     const reader = new FileReader();
     reader.onload = () => {
       const imageItem = {
-        id: this.imageCounter++,
+        id: this.imageCounter++, // Increment imageCounter
         pageIndex: 0,
         x: 100,
-        y: 100,
+        y: 100 + this.imageItems.length * 120, // Adjust Y position to avoid overlap
         src: reader.result as string,
         width: 100,
         height: 100,
@@ -145,10 +254,10 @@ export class PdfEditorComponent {
 
   addCheckboxToPage(): void {
     const checkboxItem = {
-      id: this.checkboxCounter++,
+      id: this.checkboxCounter++, // Increment checkboxCounter
       pageIndex: 0,
       x: 50,
-      y: 50,
+      y: 50 + this.checkboxItems.length * 20, // Adjust Y position to avoid overlap
       checked: false,
     };
     this.checkboxItems.push(checkboxItem);

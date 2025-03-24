@@ -12,11 +12,21 @@
     hidden
     #imageUploader
   />
-
   <p-button
     label="Download PDF"
     icon="pi pi-download"
     (click)="downloadPdf()"
+  ></p-button>
+  <!-- Add Save and Load buttons -->
+  <p-button
+    label="Save Document"
+    icon="pi pi-save"
+    (click)="saveDocument()"
+  ></p-button>
+  <p-button
+    label="Load Document"
+    icon="pi pi-folder-open"
+    (click)="loadDocument()"
   ></p-button>
 </div>
 
